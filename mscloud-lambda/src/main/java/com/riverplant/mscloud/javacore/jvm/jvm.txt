@@ -1,0 +1,202 @@
+JVM--------------------------------------------
+
+1. 内存模型
+
+stack棧【先進先出】: 放定義的變量的指針
+     棧幀: 每執行一個方法，就會生成一個棧幀
+     ---> 虛擬機棧（JVM Stack）:存放Java方法
+            ----->程序計數器： 保存指令的内存地址，用來保持指令執行到哪一步了
+     ---->本地棧(Native Stack): 存放本地方法
+
+元數據區(MetaSpace)：存放類信息和常量信息
+
+DirectBuffer: JDK 1.4 NIO
+
+
+heap堆: 存放所有的對象和數組
+    ---->新生代(1/3)
+         ----> Eden區(8/10)
+         -----> S1(1/10)
+         -----> S2(1/10)
+    
+    ---->老年代(2/3)
+    
+    
+---------------------Java類加載的全過程，什麽是雙親委派機制--------------
+Java類加載器: AppClassloader（加載我們所寫好的代碼） 
+            -> ExtClassloader(jar文件目錄下的jar包) 
+            -> Bootstrap classloader(c++)
+    每一個類加載器，都有自己的加載目錄
+
+loadClass()方法：
+
+   AppClassloader先去緩存中加載某個class,如果找不到就去父類ExtClassloader的緩存中找
+   如果依然找不到就繼續去父類Bootstrap classloader的緩存中找
+   
+   如果緩存中沒有就去各自的類加載路徑中找:
+   Bootstrap classloader: Sun.misc.boot.class
+   ExtClassloader:   Java.exe.dirs
+   AppClassloader:   在Classpath屬性下java.class.path
+   
+   
+   雙親委派: 向上委托查找，向下委托加載
+   
+   
+-------------------------------一個對象從加載到JVM，再到被GC清除--------
+1. 在堆中的新生代的Eden區創建一個對象，并且給它賦默認值
+
+2. 在棧當中創建一個指針，指向堆中的這個對象
+
+3. 再執行這個對象的初始化，給這個成員賦初始值
+
+GC: 當經歷了一次Minor GC(新生代GC)之後，如果對象不是垃圾，就會被移動到S1區，
+     再經歷了一次GC之後，如果對象不是垃圾，就會被移動到S2區，年齡+1，
+     之後會在S1和S2之間來回拷貝，每移動一次，年齡+1，最大為15  (用四個字節來計算，所以最大年齡為1111 = 15)
+     如果多次GC之後一直存活，會放入老年代
+     
+4.    方法執行結束后，棧中的指針會先被移除掉
+     
+5.    沒有指針指向的對象會被標記為垃圾，進過Full GC之後被GC綫程清理
+
+   
+ -------------------如何確定對象是不是垃圾， GC Root---------------------- 
+ 基本數據類型（int, long, double, boolean, etc.）：直接存放在棧中。
+對象引用（Object obj = new Object();）：引用本身 存放在棧中，但對象內容 存放在堆（Heap）。
+ 
+ 如何確定堆内存中的對象是不是垃圾: 
+      1. 引用計數（是否有指針指向） == 0 無法解決循環引用對象問題(内存泄露!!!!!)
+      2. 根可達算法: 在内存中，從引用根對象(GC Root)向下一直找引用，找不到的對象就是垃圾
+      
+GC Root: Stack -> JVM Stack, 
+                 Native Stack, 
+                 Class類， 
+                 run-time constant pool 常量池,  
+                 static reference 靜態變量;
+                 
+------------------JVM垃圾回收算法---------------------------
+markSweep 標記清除算法
+   1. 標記階段，把垃圾内存標記出來
+   2. 清除階段，把垃圾内存回收
+
+Copying 拷貝算法
+   1. 將内存一分爲二，每次只使用其中的一半
+   2. 將使用過的1/2内存中的未被使用過的部分拷貝到未被使用過的1/2部分内存中
+   3. 將使用過的1/2内存中的垃圾全部清除
+
+
+MarkCompact:標記壓縮算法: 
+    1. 標記階段，把垃圾内存標記出來,完成標志之後先將存活對象往一端移動
+    2. 將端邊界以外的所有内存全部清除
+    
+    
+-----------------垃圾回收器--------------------------
+STW: Stop-The-world  在垃圾回收算法執行過程中，需要將JVM内存凍結。
+     STW狀態下，Java所有的用戶綫程都停止，除了GC綫程和native方法。但是native方法
+     不能和JVM交互
+     
+GC各種算法優化的重點，就是減少STW,也是JVM 調優的重點
+
+G1：
+
+ZGC： 
+
+
+
+-----------------------JVM調優------------------------------
+1. 怎麽查看JAVA進程的JVM參數
+
+JVM調優： 定制JVM運行參數來提高Java應用程序的運行速度
+
+JVM參數分爲3類:
+
+  1. 標注指令： -開頭，這些是所有的HotSpot都支持的參數，可以用java -help打印出來
+     HotSpot是JVM實現之一，能夠即時編譯、垃圾回收、自我優化和平臺獨立
+  2. 非標準指令  -X開頭，這些指令通常與特定的HotSport版本對應，可以通過Java -x打印
+     最常用: 
+     -Xms<size>: 設置初始Java堆大小
+     -Xmx<size>: 設置最大Java堆大小
+     -Xss<size>: 設置Java綫程堆棧大小
+     
+   3. 不穩定參數: -XX開頭,這一類參數是跟特定HotSpot版本對應的，變化非常大
+      java -XX:+PrintCommandLineFlags  查看當前命令的不穩定指令
+      
+      java -XX:+PrintFlagsInitial:  查看所有不穩定指令的默認值
+      
+2. 如果一個Java程序每次運行一段事件後就會非常卡頓，該怎麽優化
+
+設定 Heap（堆）大小
+-Xms：設置 初始堆大小
+-Xmx：設置 最大堆大小
+-Xmn：設置 年輕代（Young Generation）大小
+-XX:NewRatio：設置 老年代與年輕代的比例
+
+java -Xms512m -Xmx4g -Xmn2g -XX:NewRatio=2 -jar myapp.jar
+
+
+
+ 設定棧（Stack）大小
+java -Xss512k -jar myapp.jar
+
+
+不同類型的 Java 應用適用不同的 GC，選擇適合的 GC 可以優化應用效能。
+
+GC 類型	     適用場景	                參數
+Serial GC	單執行緒，適用於小型應用	-XX:+UseSerialGC
+Parallel GC	高吞吐量，適用於伺服器應用	-XX:+UseParallelGC
+G1 GC（預設）	低延遲應用，適用於大內存	-XX:+UseG1GC
+ZGC	超低延遲，適用於 TB 級應用	-XX:+UseZGC
+
+java -XX:+UseG1GC -jar myapp.jar
+
+限制最大線程數：
+-XX:ParallelGCThreads=8
+-XX:ConcGCThreads=4
+
+設置 ForkJoin 池大小
+-Djava.util.concurrent.ForkJoinPool.common.parallelism=16
+
+JVM 監控工具
+工具	作用
+jconsole	監控 JVM 記憶體、GC、線程
+jvisualvm	可視化分析 JVM
+jstat	監測 JVM 堆使用狀況
+jmap	獲取 Heap Dump
+jstack	獲取線程 Dump
+
+
+開啟監控：
+java -XX:+UnlockDiagnosticVMOptions -XX:+PrintCompilation -XX:+PrintGCDetails -jar myapp.jar
+
+-D 是用來 設定 JVM 系統屬性（System Properties） 的命令行參數
+java -DpropertyName=value -jar myapp.jar
+這將設置一個 propertyName 屬性，並將其值設為 value，應用程式可以透過 System.getProperty("propertyName") 來獲取該屬性
+
+設置 JVM 內部參數
+java -Dfile.encoding=UTF-8 -jar myapp.jar
+設置 JVM 的默認字符編碼為 UTF-8（防止不同系統間編碼不一致）。
+
+設置 Java 日誌級別
+java -Dlogging.level=DEBUG -jar myapp.jar
+
+設置 HTTP 代理
+java -Dhttp.proxyHost=proxy.example.com -Dhttp.proxyPort=8080 -jar myapp.jar
+
+設置 Garbage Collector（GC）行為
+java -Dcom.sun.management.jmxremote -XX:+UseG1GC -jar myapp.jar
+這將啟用遠端監控（JMX）並使用 G1 GC 作為垃圾回收器。
+
+Spring Boot 設定 Active Profile
+java -Dspring.profiles.active=dev -jar myapp.jar
+這將啟動 application-dev.properties 配置，適用於不同環境的設置
+
+-D 與 System.setProperty() 的區別
+方式	設定位置	作用範圍	變更方式
+-D 參數	啟動時傳遞	整個 JVM	需要在啟動時設置
+System.setProperty("key", "value")	代碼內動態設定	只影響當前應用	可在程式執行時變更
+🔹 如果要在啟動時設置不可變的屬性，使用 -D。
+🔹 如果需要在程式運行時變更屬性，使用 System.setProperty()。
+
+多個 -D 參數
+java -Dapp.mode=production -Dlogging.level=DEBUG -Xmx2g -jar myapp.jar
+這同時設定了 app.mode 和 logging.level，並將最大堆內存設置為 2GB（-Xmx2g）
+

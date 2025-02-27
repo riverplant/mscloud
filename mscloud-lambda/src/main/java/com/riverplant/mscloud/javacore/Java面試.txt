@@ -1,0 +1,129 @@
+1. JDK、JRE、JVM的區別于關係
+JDK: Java Development Kit,   Java 開發工具包，包含了JRE和一系列的Java開發工具
+JRE: Java Runtime Environment  Java 程序的運行環境
+
+
+2. 鎖機制是怎麽樣的？偏向鎖、輕量鎖、重量鎖有什麽區別，鎖機制是如何升級的
+
+锁机制 是并发编程中用于 确保线程安全 的一种技术，
+可以防止多个线程同时访问共享资源，避免 数据竞争 问题。
+
+在 Java（例如 JVM 的对象监视器） 中，不同级别的锁包括：
+
+1️偏向锁（Biased Locking）：
+
+适用于只有一个线程访问对象的情况，旨在最小化锁的开销。
+线程获取锁时，采用优化方式，减少同步消耗。
+如果其他线程尝试访问该对象，锁会降级或撤销。
+
+public class BiasedLockTest {
+    private static final Object lock = new Object();
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 1000000; i++) { // 多次执行以触发偏向锁
+            syncMethod();
+        }
+    }
+
+    private static void syncMethod() {
+        synchronized (lock) { // 偏向锁
+            int a = 1 + 1; // 模拟计算
+        }
+    }
+}
+JVM 默认 4 秒后 启用 偏向锁，可以使用 -XX:BiasedLockingStartupDelay=0 立即启用。
+----------------------------------------------------------------------------
+2️轻量级锁（Lightweight Locking）：
+
+适用于 多个线程竞争，但竞争不激烈 的情况。
+通过 CAS（Compare-And-Swap） 实现，减少了使用 synchronized 关键字导致的性能损耗。
+如果竞争加剧，则可能升级为重量级锁。
+
+public class LightweightLockTest {
+    private static final Object lock = new Object();
+
+    public static void main(String[] args) {
+        Runnable task = () -> {
+            for (int i = 0; i < 100000; i++) {
+                syncMethod();
+            }
+        };
+
+        Thread t1 = new Thread(task);
+        Thread t2 = new Thread(task);
+        t1.start();
+        t2.start();
+    }
+
+    private static void syncMethod() {
+        synchronized (lock) { // 轻量级锁
+            int a = 1 + 1; // 模拟计算
+        }
+    }
+}
+
+两个线程交替执行 syncMethod()，触发 轻量级锁。
+JVM 通过 CAS（Compare-And-Swap） 让线程 自旋，避免进入内核级锁。
+-----------------------------------------------------------------
+
+3️重量级锁（Heavyweight Locking）：
+
+发生在多个线程频繁竞争同一资源时。
+依赖 JVM 的对象监视器 和 操作系统的锁机制，但这会影响性能。
+
+public class HeavyweightLockTest {
+    private static final Object lock = new Object();
+
+    public static void main(String[] args) {
+        Runnable task = () -> {
+            for (int i = 0; i < 10000; i++) {
+                syncMethod();
+            }
+        };
+
+        Thread t1 = new Thread(task);
+        Thread t2 = new Thread(task);
+        Thread t3 = new Thread(task);
+        Thread t4 = new Thread(task);
+        t1.start();
+        t2.start();
+        t3.start();
+        t4.start();
+    }
+
+    private static void syncMethod() {
+        synchronized (lock) { // 重量级锁
+            try {
+                Thread.sleep(1); // 模拟长时间占用锁
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+由于 Thread.sleep(1)，多个线程同时竞争 lock，导致锁升级为重量级锁。
+线程会进入 阻塞状态，等待 lock 释放 和操作系統打交道，效率低
+--------------------------------------------------------
+锁是如何升级的？
+锁的升级过程（Lock Escalation）：
+
+无锁状态 → 偏向锁（如果只有一个线程访问对象）。
+偏向锁 → 轻量级锁（如果多个线程开始竞争，但冲突较少）。
+轻量级锁 → 重量级锁（如果线程竞争严重，影响性能）。
+
+
+-XX:UseBiasedLocking:  是否打開偏向鎖, 默認不打開
+-XX:BiasedLockingStartupDelay: 默認值為4秒
+
+JVM 默認在4秒之後才會為新創建的對象添加偏向鎖(門牌)
+
+
+---------------------AQSAbstractQueuedSynchronizer）, 如何實現可重入鎖-------------------------------------
+
+
+
+
+
+-------------------------------------------------------------------------------
+
+

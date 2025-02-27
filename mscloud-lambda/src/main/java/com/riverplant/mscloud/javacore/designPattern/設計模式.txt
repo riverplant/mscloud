@@ -1,0 +1,71 @@
+設計模式：
+------單例模式-------
+
+
+
+
+
+------工廠模式---------
+
+
+
+
+
+--------模板方法設計模式-----------
+
+
+
+
+--------代理模式---------------
+
+
+
+----------裝飾者模式-------------
+
+
+-----------策略模式（Strategy）------
+
+// 定義策略介面
+interface PaymentStrategy {
+    void pay(int amount);
+}
+
+// 具體策略：信用卡支付
+class CreditCardPayment implements PaymentStrategy {
+    public void pay(int amount) {
+        System.out.println("Paid " + amount + " using Credit Card.");
+    }
+}
+
+// 具體策略：PayPal 支付
+class PayPalPayment implements PaymentStrategy {
+    public void pay(int amount) {
+        System.out.println("Paid " + amount + " using PayPal.");
+    }
+}
+
+// 客戶端代碼
+class ShoppingCart {
+    private PaymentStrategy paymentStrategy;
+
+    public void setPaymentStrategy(PaymentStrategy paymentStrategy) {
+        this.paymentStrategy = paymentStrategy;
+    }
+
+    public void checkout(int amount) {
+        paymentStrategy.pay(amount);
+    }
+}
+
+public class StrategyPattern {
+    public static void main(String[] args) {
+        ShoppingCart cart = new ShoppingCart();
+        
+        cart.setPaymentStrategy(new CreditCardPayment());
+        cart.checkout(100);
+        
+        cart.setPaymentStrategy(new PayPalPayment());
+        cart.checkout(200);
+    }
+}
+------------------------------------------------------------------------

@@ -1,0 +1,260 @@
+什么是 AQS（AbstractQueuedSynchronizer）？
+AQS（AbstractQueuedSynchronizer） 是 Java 并发包（java.util.concurrent） 
+中用于 构建锁和同步器 的核心框架。
+
+AQS 采用 FIFO（先进先出）的等待队列 来 管理多个线程的访问控制，
+为自定义同步器（如 ReentrantLock, Semaphore, CountDownLatch） 提供了一种 通用的底层实现。
+
+AQS 的核心概念
+AQS 的核心设计基于 队列 + CAS（Compare-And-Swap）+ 共享/独占模式。
+
+1️. state（同步状态）
+AQS 维护了一个 volatile 变量 state，表示当前的 同步状态：
+
+state == 0 → 代表锁是空闲的
+state > 0 → 代表锁被占用（可能是独占锁或共享锁）
+
+state 的修改方式
+
+getState() 获取状态
+setState(int newState) 设置状态
+compareAndSetState(int expect, int update) CAS 方式更新状态（乐观锁）
+
+️. Node（等待队列）
+AQS 采用 CLH 队列（FIFO） 来存储 等待获取锁的线程，以 双向链表 的形式组织：
+
+线程竞争失败时，会被封装成 Node 并加入 等待队列
+线程被唤醒时，按照 FIFO 顺序 获取锁
+
+所有的綫程會被封裝給一個Node!!!!!!!
+static final class Node {
+    volatile Node prev;  // 前驱节点
+    volatile Node next;  // 后继节点
+    volatile Thread thread;  // 线程
+    volatile int waitStatus;  // 线程等待状态
+}
+
+等待状态 waitStatus：
+
+状态	说明
+SIGNAL(-1)	线程需要被唤醒
+CANCELLED(1)	线程等待超时或被中断
+CONDITION(-2)	线程在 Condition 下等待
+PROPAGATE(-3)	共享模式下，状态需要传播
+
+
+acquire() 和 release()
+AQS 通过 acquire() 和 release() 管理线程获取和释放同步状态。
+
+📌 独占模式（ReentrantLock）
+
+acquire(int arg) → 线程尝试获取锁，失败则进入等待队列
+release(int arg) → 释放锁，唤醒等待的线程
+
+
+📌 共享模式（Semaphore / CountDownLatch）
+
+acquireShared(int arg) → 线程尝试获取共享资源，失败则进入队列
+releaseShared(int arg) → 释放共享资源，唤醒下一个线程
+
+
+AQS 是 java.util.concurrent 并发框架的基础，常见的 基于 AQS 实现的同步器 包括：
+
+同步器	作用
+ReentrantLock	可重入锁，支持独占模式
+Semaphore	信号量，支持共享模式
+CountDownLatch	计数器，用于多个线程同步
+CyclicBarrier	循环栅栏，线程达到一定数量后继续执行
+ReadWriteLock	读写锁，支持读共享、写独占
+
+
+package com.riverplant.mscloud.javacore.aqs;
+
+import java.util.concurrent.locks.AbstractQueuedSynchronizer;
+
+public class MyLock {
+
+	private static class Sync extends AbstractQueuedSynchronizer {
+
+		@Override
+		protected boolean tryAcquire(int arg) {
+			if(compareAndSetState(0, 1)) {
+				setExclusiveOwnerThread(Thread.currentThread());
+				return true;
+			}
+			return false;
+		}
+
+		@Override
+		protected boolean tryRelease(int arg) {
+			if(getState() == 0) throw new IllegalMonitorStateException();
+			setExclusiveOwnerThread(null);
+			setState(0);
+			return true;
+		}
+
+		@Override
+		protected boolean isHeldExclusively() {
+			return getState() == 1;
+		}
+		
+	}
+	
+	private final Sync sync = new Sync();
+	
+	public void acquire() {
+		sync.acquire(1);
+		System.out.println(Thread.currentThread().getName()+"get lock");
+	}
+	
+	public void release() {
+		sync.release(1);
+		System.out.println(Thread.currentThread().getName()+"release lock");
+	}
+}
+
+// 测试 MyLock
+public class AQSDemo {
+    private static final MyLock lock = new MyLock();
+
+    public static void main(String[] args) {
+        Runnable task = () -> {
+            lock.acquire(1);
+            System.out.println(Thread.currentThread().getName() + " 获取了锁");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                lock.release(1);
+                System.out.println(Thread.currentThread().getName() + " 释放了锁");
+            }
+        };
+
+        new Thread(task).start();
+        new Thread(task).start();
+    }
+}
+
+
+import java.util.concurrent.CountDownLatch;
+
+public class CountDownLatchDemo {
+    private static final CountDownLatch latch = new CountDownLatch(3);
+
+    public static void main(String[] args) {
+        Runnable task = () -> {
+            System.out.println(Thread.currentThread().getName() + " 执行任务");
+            latch.countDown(); // 计数减 1
+        };
+
+        // 启动 3 个线程
+        new Thread(task).start();
+        new Thread(task).start();
+        new Thread(task).start();
+
+        try {
+            latch.await(); // 等待所有线程完成
+            System.out.println("所有任务已完成！");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+-------------------可重入鎖-------------------------
+state表示枷鎖的次數，0為無鎖，每加一次鎖state++, 釋放一次就state--
+
+CountDownLatch	倒计时，等所有任务完成后再执行	主线程等待多个任务完成
+Semaphore	信号量，控制并发线程数	限流控制（如连接池）
+CyclicBarrier	线程屏障，等所有线程到达屏障点再继续	多线程并行计算后合并结果
+
+--------------------ABC三個綫程同時執行、依次執行和交錯執行----------------
+關於并發工具：
+countDownLatch: 不能保證所有綫程同時執行，可以保證所有的任務完成后主綫程再往下走。
+例如查詢多個數據庫的日志分片，主綫程使用latch.await()確保所有的查詢結果都返回后統一處理數據最後返回給前端
+                
+semaphore:   依次執行，進行了排序  
+cylicBarrier: 所有綫程同時執行
+
+依次執行: 通過一個volatile int ticket = 1來控制
+
+volatile int ticket = 1
+Thread t1 = new Thread(()->{
+while(true) {
+ if(ticket == 1){
+   try{
+      Thread.sleep(100);
+      for(int i=0;i<10;i++) {
+       System.out.println("a"+i);
+      
+      }
+   
+   }//try
+   ticket = 2;
+   
+   return;
+ 
+ 
+ }
+
+}
+
+})
+
+
+Thread t2 = new Thread(()->{
+while(true) {
+ if(ticket == 2){
+   try{
+      Thread.sleep(100);
+      for(int i=0;i<10;i++) {
+       System.out.println("b"+i);
+      
+      }
+   
+   }//try
+   ticket = 3;
+   
+   return;
+ 
+ 
+ }
+
+}
+
+})
+
+Thread t3 = new Thread(()->{
+while(true) {
+ if(ticket == 3){
+   try{
+      Thread.sleep(100);
+      for(int i=0;i<10;i++) {
+       System.out.println("c"+i);
+      
+      }
+   
+   }//try
+   ticket = 1;
+   
+   return;
+ 
+ 
+ }
+
+}
+
+})
+------------------------字符串快速排序---------------------------------------------------------------
+Fork/Join!!!!
+
+1.將很長的數組分成兩份，然後分別進行排序
+2. 將數組繼續拆分。直到剩下兩個數字或者一個數字,然後進行排序
+3. 匯總結果，先從第一個數組的第一個元素開始與第二個數組進行比較，哪個數組的值比較小就移動哪個數組的指針
+
+
+
+
+
+
