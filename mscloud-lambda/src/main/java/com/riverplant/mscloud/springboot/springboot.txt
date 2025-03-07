@@ -1,0 +1,55 @@
+1. 自動配置Auto-Confuguration
+   1. 約定大於配置（convention over configuration）： 框架會根據你的項目結構和依賴自動完成配置
+   2. 自動掃描和類路徑
+   3. 條件配置
+   4. 自定義配置
+   5. 啓動器（starters）
+   6. 自動配置類： 
+         spring.factories
+         META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+            
+     pring-boot-actuator 查看自動配置
+     <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+     </dependency>
+     開啟 /actuator/beans 端點 在 application.properties 或 application.yml 添加：
+     management.endpoints.web.exposure.include=*
+     
+     訪問 /actuator/conditions 啟動應用後，訪問：
+     http://localhost:8080/actuator/conditions
+     
+     
+     如果不想加載某個自動配置類，可以在 application.properties 中排除：
+     spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+     
+     
+     自定義自動配置類：
+      創建一個 @Configuration 類
+      @Configuration
+@ConditionalOnClass(DataSource.class) // 當 classpath 中有 DataSource 才啟用
+@ConditionalOnProperty(name = "custom.feature.enabled", havingValue = "true") // 可通過屬性開關
+public class MyAutoConfiguration {
+
+    @Bean
+    public MyService myService() {
+        return new MyService();
+    }
+}
+
+在 resources/META-INF/spring/ 目錄下創建：
+org.springframework.boot.autoconfigure.AutoConfiguration.imports
+
+入你的自動配置類：
+com.example.config.MyAutoConfiguration
+
+--------------------------------------------starter----------------------------------------
+1. 提供配置的依賴,解決各個依賴之間的版本衝突
+
+
+--------------------------------------------啓動過程------------------------
+
+
+
+
+      

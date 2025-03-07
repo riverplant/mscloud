@@ -117,6 +117,8 @@ public class FlowDemo {
 				System.out.println("訂閲者接收到完成信號:");	
 			}
 			
+			
+			
 		};
 		
 		//3. 綁定發佈者和訂閲者

@@ -64,7 +64,18 @@ onNext: 儅某個元素到達，我們可以定義它的處理邏輯
  ---------------Mono和flux------------------------------
  
  事件感知API-doOnXxx
- 
+ SinalType:  
+    SUBSCRIBE: 被订阅
+    REQUEST:   请求了N个元素
+    CANCEL:    流被取消
+    ON_SUBSCRIBE: 被订阅的时候
+    ON_NEXT: 在元素到达
+    ON_ERROR:
+    ON_COMPLETE:
+    AFTER_TEMINATE:被中断以后
+    CURRENT_CONTEXT: 当前上下文
+    ON_CONTEXT:      感知上下文
+    
  
  
  

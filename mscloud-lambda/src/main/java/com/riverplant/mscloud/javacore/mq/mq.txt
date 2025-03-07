@@ -1,0 +1,93 @@
+1. MQ
+FIFO先進先出。消息由生產者發送到MQ進行排隊，消費者對消息進行處理
+
+MQ作用：
+  1. 異步    生產者->MQ<-客戶
+  
+  2. 解耦
+  
+  3. 削峰
+  
+MQ 確保消息不丟失:
+   1. 哪些環節會造成消息丟失
+   
+   
+   2.怎麽防止消息丟失
+   
+
+RabbitMQ 的工作流程是怎樣的？
+
+RabbitMQ 主要使用 AMQP（Advanced Message Queuing Protocol），其工作流程如下：
+
+Producer（生產者） 發送消息到 Exchange（交換機）
+Exchange 根據 Routing Key（路由鍵） 將消息發送到 Queue（隊列）
+Consumer（消費者） 從 Queue 中獲取消息並處理
+
+
+如何在 Spring Boot 中使用 RabbitMQ？
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-amqp</artifactId>
+</dependency>
+
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+
+創建消息生產者：
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RabbitMQProducer {
+    private final RabbitTemplate rabbitTemplate;
+
+    public RabbitMQProducer(RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void sendMessage(String message) {
+        rabbitTemplate.convertAndSend("exchange_name", "routing_key", message);
+        System.out.println("消息已發送：" + message);
+    }
+}
+
+
+
+創建消息消費者
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RabbitMQConsumer {
+    @RabbitListener(queues = "queue_name")
+    public void receiveMessage(String message) {
+        System.out.println("收到消息：" + message);
+    }
+}
+------------------------------------------------------------------------------------------
+Kafka 如何保證消息不丟失？
+
+Kafka 保證消息不丟失的方式有：
+
+副本機制（Replication）：每個 Partition 可設置多個副本
+生產者 ACK 設置：
+acks=0：不等待確認，可能會丟失
+acks=1：Leader 收到消息就確認，可能丟失
+acks=all：所有副本確認後才返回，最安全
+消費者 offset 設置：
+enable.auto.commit=false：手動提交 offset，確保消息處理後才提交
+
+Properties props = new Properties();
+props.put("bootstrap.servers", "localhost:9092");
+props.put("acks", "all"); // 確保所有副本接收
+props.put("retries", 3);
+props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+Producer<String, String> producer = new KafkaProducer<>(props);
+producer.send(new ProducerRecord<>("test-topic", "key", "message"));
+producer.close();
+
+

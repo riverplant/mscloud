@@ -1,0 +1,51 @@
+1. 緩存穿透、緩存擊穿、緩存雪崩
+
+緩存穿透（Cache Penetration | Pénétration du cache）: 緩存中查不到，數據庫中也查不到
+
+1. 對參數進行合法性校驗
+2. 將數據庫中沒有查到結果的記錄也記錄到redis中，例如key:-1, value:null, 設置較短的過期時間
+3. 引入布隆過濾器: 在訪問Redis之前判斷數據是否合法。
+   BloomFilter: 
+
+緩存擊穿（Cache Breakdown | Effondrement du cache）:指某个热点数据（访问量非常高）刚好过期，大量请求瞬间查询数据库，导致数据库压力陡增。
+1.設置永不過期,要注意在value當中定義一個邏輯上的過期時間，另起一個綫程，定期重建緩存
+例如在user中設置一個expire，使用一個現場定期掃描這個值，一旦過期就從新去數據庫重新查詢并且更新Redis
+
+redis.set("hot:key", value); // 永不过期
+// 使用后台线程定期更新数据
+scheduleUpdate(() -> {
+    String newValue = queryDatabase();
+    redis.set("hot:key", newValue);
+}, 60);
+
+
+
+2. 加載DB的時候，防止并發
+String key = "hot:key";
+String value = redis.get(key);
+if (value == null) {
+    synchronized (this) { // 互斥锁
+        value = redis.get(key); // Double-check 防止重复查询
+        if (value == null) {
+            value = queryDatabase();
+            redis.setex(key, value, 300); // 重新写入缓存
+        }
+    }
+}
+return value;
+
+緩存雪（Cache Avalanche | Avalanche de cache）:大量缓存数据同时失效，导致 大量请求同时打到数据库，可能导致数据库 宕机 或 性能急剧下降。
+1. 隨機設置過期時間
+
+
+
+--------------------------------------保證Redis與數據庫的數據一致------------------------------
+儅對數據進行修改，是先刪緩存，還是先寫數據庫
+
+1. 先操作緩存，但是不刪除緩存，將緩存改爲一個特殊值（-999），客戶端讀取緩存時，如果發現是默認值，就休眠一小會，再去查一次
+
+
+
+
+
+
