@@ -1,0 +1,12 @@
+logstash需要和elasticsearch版本保持同步
+
+1. 數據采集
+
+
+2. 以id或者update_time作爲數據同步邊界
+
+
+3. logstash-input-jdbc插件(自帶)
+
+
+4. 預先創建索引

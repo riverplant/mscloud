@@ -92,5 +92,8 @@
     </build>
     <modules>
     	<module>mscloud-lambda</module>
+    	<module>mscloud-ai</module>
+    	<module>mscloud-kafka</module>
+    	<module>mscloud-rabbimq</module>
     </modules>
 </project>

@@ -1,0 +1,18 @@
+Spring-AI --> prompt(將文本和圖片封裝到這個對象中)--轉換成JSON ---> ChatGPT  
+
+  --返回-->response --->Spring-AI
+  
+  
+  ------------------------------------------------------------
+  
+RAG(檢索增强生成): 將資料、只是embedding 到【向量數據庫:redis,elasticsearch】
+
+
+fine-tuning(微調)    
+
+
+
+
+function-call(函數調用):
+  
+  

@@ -1,0 +1,329 @@
+1. 傳統: 分佈式基於發佈/訂閲模式的消息隊列，主要應用數據實時處理領域
+
+2. 最新： 開源的分佈式事件流平台(Event Stream Platform)
+
+   消息隊列模式: 
+   
+      點對點: Message Queue,消費者消費數據之後刪除消息
+   
+   
+   
+      發佈/訂閲(使用最多): Message Queue的 Topic,
+        可以有多個topic主題
+        消費者消費數據之後不刪除消息
+        每個消費者互相獨立，都可以消費到數據
+-----------------------------------------------------------------------------------
+KafKa基礎架構:
+   1. Producer
+   
+   
+   2. Topic：分成多個partition[分區進行存儲，可以提高吞吐量]
+            broker0(代表一個服務器):  TopicA-Partition0
+            broker1(代表一個服務器):  TopicA-Partition1
+            broker2(代表一個服務器):  TopicA-Partition2
+            
+            消費者可以選擇不同的分區來進行消費
+            但是需要注意:！！！一個分區的數據只能由一個消費者來消費!!!!!!!
+            
+            爲了保障分區的可靠性，每個broker中存儲了若干副本,生產和消費只能操作leader副本，
+            只有等待leader出問題，follower副本才有可能成為leader被生產者和消費者操作
+            
+            
+   3.Consumer
+   
+----------------------------------------快速入門------------------------------------
+tar -zxvf kafka....  解壓縮
+mv kafka_...   kafka  修改名稱
+配置jdk:
+vim ~/.bashrc
+
+export JAVA_HOME=/opt/module/jkd21
+export PATH=$JAVA_HOME/bin:$PATH
+export CLASSPATH=.:"$JAVA_HOME"/lib/tools.jar
+
+source ~/.bashrc
+
+-----------------kafka配置--------------------------
+1. 配置server.properties
+
+
+borker.id=0   //kafka身份唯一表示，集群安裝下，這個id必須唯一
+
+log.dirs=      //日志保存
+
+zookeeper.connect=kafka
+
+设置 Kafka 环境变量
+
+vim ~/.bashrc
+
+# Kafka 安装目录
+export KAFKA_HOME=/opt/module/kafka
+export PATH=$PATH:$KAFKA_HOME/bin
+source ~/.bashrc
+
+kafka-topics.sh --version  查看kafka版本
+
+Kafka 默认使用 config/zookeeper.properties，你需要检查或修改它。
+tickTime=2000
+initLimit=5
+syncLimit=2
+dataDir=/opt/module/kafka/data/zookeeper  # 指定 Zookeeper 数据存储路径
+clientPort=2181  # 监听客户端连接的端口
+
+tickTime=2000：Zookeeper 服务器与客户端之间的最小心跳时间（单位：ms）。
+initLimit=5：Follower 连接到 Leader 允许的初始化时间（tick 数）。
+syncLimit=2：Follower 与 Leader 之间允许的最大响应时间（tick 数）。
+dataDir：Zookeeper 存储数据的目录（默认是 /tmp/zookeeper，建议修改）。
+clientPort=2181：Zookeeper 监听的端口（默认 2181）。
+
+zookeeper-server-start.sh -daemon $KAFKA_HOME/config/zookeeper.properties
+ps -ef | grep zookeeper
+
+
+-----------------編寫啓動或者停止脚本--------------------------------
+#!/bin/bash
+
+# 定义 Kafka 服务器列表
+KAFKA_NODES=("kafka100")  # 如果是集群模式，可以添加更多节点，如 kafka101, kafka102
+
+# Kafka 安装目录
+KAFKA_HOME="/opt/module/kafka"
+
+# 获取当前操作
+ACTION=$1
+
+case $ACTION in
+"start")
+  for NODE in "${KAFKA_NODES[@]}"
+  do
+    echo "--- 启动 $NODE Kafka ---"
+    
+    # 检查 Kafka 是否已经在运行
+    ssh $NODE "ps -ef | grep kafka.Kafka | grep -v grep"
+    
+    if [ $? -eq 0 ]; then
+      echo "Kafka 已在 $NODE 运行，跳过启动"
+    else
+      ssh $NODE "$KAFKA_HOME/bin/kafka-server-start.sh -daemon $KAFKA_HOME/config/server.properties"
+      echo "Kafka 启动命令已发送到 $NODE"
+    fi
+  done
+;;
+"stop")
+  for NODE in "${KAFKA_NODES[@]}"
+  do
+    echo "--- 停止 $NODE Kafka ---"
+    
+    # 先检查 Kafka 是否正在运行
+    ssh $NODE "ps -ef | grep kafka.Kafka | grep -v grep"
+    
+    if [ $? -eq 0 ]; then
+      ssh $NODE "$KAFKA_HOME/bin/kafka-server-stop.sh"
+      echo "Kafka 停止命令已发送到 $NODE"
+    else
+      echo "Kafka 未在 $NODE 运行，无需停止"
+    fi
+  done
+;;
+*)
+  echo "用法: $0 {start|stop}"
+  exit 1
+;;
+esac
+
+----------------------------------生產者-------------------------------------------
+---------------生產者脚本: kafka-console-producer.sh--------------------
+----向topic發送數據
+
+bin/kafka-console-producer.sh  --bootstrap-server 【kafka100:9092，kafka101:9092，kafka103:9092】 --topic first
+
+bin/kafka-console-producer.sh  --bootstrap-server kafka100:9092 --topic first
+
+1. main 綫程創建一個Producer 
+
+                      --- send(ProducerRecord)---> 攔截器Interceptors(對數據進行加工)
+                      
+                      ------->Serializer(序列化器)
+                      
+                      -------->分區器(Partitioner)通過發往不同的緩存隊列來實現(隊列大小32m)[DQuene1,DQuene2,DQuene3.....]
+                      
+                       -------->ProducerBatch(16K)
+                       
+                       儅數據纍計到batch.size的時候，才會發送
+                       【linger.ms:如果數據一直沒有達到batch.size，sender等待linger.ms的時間就會發送】 
+                       ----sender綫程----> Sender(讀取數據)
+                       
+                       如果發送出去的消息一直得不到Broker應答，儅積纍到5個消息的時候將停止發送
+                       -----NetworkClient【Request1, Request2.....】-----
+                       
+                       
+                       ------------>Selector(打通輸入流和輸出流)
+                       
+                       
+                       ------------->Broker【分區1，分區2....】
+                       應答acks:
+                       0: 生產者發送過來的數據，不需要等數據落盤就應答
+                       1： 生產者發送過來的數據，Leader收到數據後應答
+                      -1(all): Leader和ISR隊列所有節點收齊數據后才應答
+
+
+生產者分區:  每一個Partition在一個Broker上存儲，可以把海量的數據按照分區
+           切割成一塊塊數據存儲在多台Broker上，實現負載均衡的效果
+           
+DefaultPartitioner: Kafka默認分區器
+    1. 如果指定了分區，就按照指定分區發送
+    2. 如果沒有指定分區，但是指定了Key, 就按照（ key的hash值%分區數 ）相同的 key 总是映射到相同的分区
+    3. 如果沒有指定分區，沒有指定Key，就将一批消息粘性地发送到同一个分区StickyPartitioner，直到 batch 被填满或者达到超时阈值，然后才会切换到新的分区
+    
+
+業務需求：
+  將訂單表中的所有數據發送到kafka某一個分區: 將key設置爲訂單表的名字
+
+  通過kafka的分區器實現，將發送過來的數據中如果包含nitere的數據都發往0號分區，其它發往1號分區
+  
+----生產者提高吞吐量:linger.ms: 默認爲0ms,只要有消息就立刻發送
+
+修改 batch.size： 批次大小，默認16k
+    linger.ms: 等待時間，修改為5-100ms
+    compression.tye: 壓縮snappy
+    RecordAccumulator: 緩衝區大小，修改爲64m
+
+
+-----數據可靠性: ACK :
+               0,
+               1, (一般用於傳輸普通的日志)
+               all(-1) 傳輸和錢相關的數據，必須保證
+【非常重要!!!】
+數據完全可靠條件: ACK=-1 
+             + 分區副本>=2（leader + follower） 
+             + ISR(in-sync replica set)裏應答的最小副本數>=2
+             有可能出現重複數據
+
+
+【非常重要!!!】
+至少一次(At Lease Once): ACK=-1 
+             + 分區副本>=2（leader + follower） 
+             + ISR(in-sync replica set)裏應答的最小副本數>=2
+             有可能數據重複
+             
+最多一次(At Most Once): ACK=0 保證數據不重複，但是可能丟數據
+
+精確一次(Exactly Once): 冪等性和事務!!!!!!!!!!!!!!!
+
+----------冪等性: Producer不論向Broker發送多少次重複數據，Broker只會持久化一次，不會重複
+
+精確一次(Exactly Once) = 冪等性 
+             + 至少一次(At Lease Once): ACK=-1 
+             + 分區副本>=2（leader + follower） 
+             + ISR(in-sync replica set)裏應答的最小副本數>=2
+             
+冪等性判斷重複數據的標準: 具有<PID,Partition,SeqNumber>相同主鍵的消息提交時
+                    Broker指揮持久化一條
+                    PID: 生產者ID,每次Kafka重啓都會分配一個新的
+                    Partition: 分區號
+                    SeqNumber: 單調遞增
+                    冪等性只能保證單分區單會話中不重複       
+開啓冪等性: 【enable.idempotence】   默認true    
+
+
+
+------------生產者事務: 開啓事務，必須先開啓冪等性  
+
+Transaction: 用戶提前設置transactional.id，自定義唯一ID，不受kafka重啓影響
+
+1. 初始化事務:
+void initTransactions()
+
+2. 開啓事務
+void beginTransaction()
+
+
+3. 提交事務
+void commitTransaction()
+
+
+4. 放棄事務
+void abortTransaction()
+
+
+
+---------------------數據有序
+單分區内，有序
+
+
+----------數據亂序
+每個broker最多可以緩存5個請求(無應答請求)
+
+
+
+
+    
+             
+             
+
+------------集群脚本:  kafka-topics.sh----------------------------
+
+-----bootstrap-server<String server to connect> 連接kafka broler主機名稱和端口號
+
+-----topic <topic名稱> 找到要操作的topic名稱
+
+
+-----create   創建主題
+
+------delete  刪除
+
+------alter   修改
+
+-----list     查看所有主題
+
+
+----describe:查看topic詳情信息
+
+---partitions  指定設置topic分區
+
+---replication-facotr: 指定設置分區副本
+
+---config<String:name=value> 更新系統默認的配置
+
+
+---查看當前服務器中所有topic:
+bin/kafka-topics.sh --bootstrap-server 【kafka100:9092，kafka101:9092，kafka103:9092】 --list
+
+
+---創建first topic:
+ bin/kafka-topics.sh --bootstrap-server kafka100:9092 --topic first --create --partitions 1 --replication-factor 1
+
+【有幾臺服務器Broker就能創建幾個副本replication-factor！！！！！】
+
+----查看first的詳細信息: 
+bin/kafka-topics.sh --bootstrap-server kafka100:9092 --topic first --describe
+
+----修改topic
+【partitions只能增加，不能減少!!!!!!!】
+bin/kafka-topics.sh --bootstrap-server kafka100:9092 --topic first --alter --partitions 3
+
+
+---------------------消費者: kafka-console-consumer.sh-------------------
+消費生產者在主題中生產的數據:
+bin/kafka-console-consumer.sh  --bootstrap-server 【kafka100:9092，kafka101:9092，kafka103:9092】 --topic first
+
+bin/kafka-console-consumer.sh  
+    --bootstrap-server 【kafka100:9092，kafka101:9092，kafka103:9092】 
+    --topic first
+    --from beginning
+-------------------------------------------------------------------------------------
+
+
+
+請檢查 Kafka 服務端（192.168.10.100）的 server.properties 配置：
+cat /path/to/kafka/config/server.properties | grep listeners
+
+
+listeners=PLAINTEXT://0.0.0.0:9092
+advertised.listeners=PLAINTEXT://192.168.10.100:9092
+
+
+
+
+
