@@ -1,0 +1,34 @@
+https://r2dbc.io/
+
+The Reactive Relational Database Connectivity (R2DBC) project brings reactive programming APIs to relational databases.
+
+
+https://r2dbc.io/drivers/   數據庫驅動
+
+1. 導入驅動: r2dbc
+
+2. 驅動：
+       獲取連接
+       發送SQL、執行
+       封裝數據庫返回結果
+
+
+ 連接池: r2dbc-pool
+
+ ---------------------------------------------------Spring Data R2DBC----------------------------------------------------
+
+1.  R2dbcAutoConfiguration ： 主要配置連接工廠，連接池
+
+
+2.  R2dbcDataAutoConfiguration：
+      R2dbcEntityTemplate： 操作數據庫的響應式客戶端(CRUD API)
+      數據類型映射關係，轉換器、自定義R2dbcCustomConversions 轉換器組件
+      數據庫類型  對應 Java數據類型轉換
+
+
+
+3.  R2dbcRepositoriesAutoConfiguration: 開啓Spring Data 開啓聲明式接口方式的CRUD
+
+
+
+4.  R2dbcTransactionManagerAutoConfiguration

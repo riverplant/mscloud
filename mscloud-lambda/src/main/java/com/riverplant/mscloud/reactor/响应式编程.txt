@@ -1,0 +1,223 @@
+Reactive Stream: Java9提供響應式規範  JVM 面向流的庫的標準和規範
+
+Flow: java.tuil.concurrent.Flow:基於消息驅動
+
+1. 可以處理可能無限數量的元素
+
+2. 有序
+
+3. 在組件之間異步傳遞元素
+
+
+4. 强制性非阻塞, 背壓模式: 由一個隊列做緩存
+    背壓: 儅前元素正在處理的時候，下一個元素不會被處理
+    
+綫程越多越好還是越少越好？
+基於CPU核心，例如説4核，100個綫程。 一個核心排隊很多綫程，儅綫程切換的時候，切換需要保留現場，浪費内存，浪費時間
+
+理論來説每一個核心就一個綫程一直在運行！！！！！讓少量的綫程一直忙，不讓大量的綫程一直切換等待
+
+-------------------------------------------------------------------------------
+瀏覽器發送請求
+-------->zcceptor(8080 boss 專門負責接數據) 
+--->放入緩衝區1
+ ----->有和核數相同的worker綫程一直從緩衝區1拿數據
+ ---->每一個worker綫程有可能也會需要一個數據緩衝區2來調用遠程的服務等待響應（TCP）,或者一次IO調用
+ ------>響應完成後返回的數據會自動回到數據緩衝區2[worker用回調來感知]
+ ------>儅緩衝區沒有收到數據的時候，worker綫程可以去緩衝區1中繼續拿新的數據保持工作
+ ----------------------------------------------------------------------------------
+ 讓所有的一部綫程都能互相監聽消息、處理消息，構建實時消息處理流!!!!!!!!!!!
+ 
+ 1.Publisher 發佈者： 負責流的源頭，可以異步非阻塞dataBuffer發佈到緩衝區
+ 
+ 2. Subscriber 訂閲者: 需要得到使用Processor對原數據進行處理后的數據
+ 
+ 3. Subscription 訂閲關係【發佈者和訂閱者綁定】
+ 
+ 4. Processor:中間處理器，包含了對上一步數據的subscriber，以及將處理後的數據對下一步的publisher
+ 
+ 
+ 
+Reactor核心!!!!!!!!
+高并發： 緩存、異步、隊列
+
+1. Reactive core: fully non-blocking
+
+
+
+2. Typed [0|1|N] Sequences: 
+   Mono[0|1] : 有1個或者0個數據
+   Flux[N]: 有一對數據
+   
+   
+3. NON-BLOCKING IO: NETOWRK & 
+   非阻塞原理： 緩衝 + 回調
+
+
+
+onNext x 0...N[onError|onComplete]
+
+onNext: 儅某個元素到達，我們可以定義它的處理邏輯
+  onComplete:一切正常觸發
+   onError： 異常觸發
+ 
+ ---------------Mono和flux------------------------------
+ 
+ 事件感知API-doOnXxx
+ SinalType:  
+    SUBSCRIBE: 被订阅
+    REQUEST:   请求了N个元素
+    CANCEL:    流被取消
+    ON_SUBSCRIBE: 被订阅的时候
+    ON_NEXT: 在元素到达
+    ON_ERROR:
+    ON_COMPLETE:
+    AFTER_TEMINATE:被中断以后
+    CURRENT_CONTEXT: 当前上下文
+    ON_CONTEXT:      感知上下文
+    
+ 
+ 
+ ----------------------Reactor核心--------------------------------------------------------------
+1. Mono & Flux
+
+2. subscribe: 訂閲流
+
+3. 流的取消: 消费者调用cancel方法(Disposable接口.dispose())
+
+4. 自定义消费者推荐: BaseSubscriber
+
+
+5. 背压(backpressure)和请求重塑(Reshape Requests)
+buffer:
+
+limitRate
+
+limitRequest: 限制请求次数
+
+6.以编程的方式创建序列:
+   6.1 同步创建序列  generator
+
+   2. 異步多綫程:create
+
+Handle: 處理流中的元素
+
+
+7. 綫程的調用
+
+8. Handling Errors
+
+
+9. 超時與重試
+/**
+     * 超時和延遲與重拾機制
+     */
+    @Test
+    void retryAndTimeout() throws IOException {
+
+        Flux.just(1)
+                .delayElements(Duration.ofSeconds(3))//延遲3秒發送
+                .log()
+                .timeout(Duration.ofSeconds(1))//規定超時時間
+                .retry(3)//設置重試次數
+                .map(i->i + "haha")//因爲超時而無法接收到
+                .subscribe(v -> System.out.println("v = " + v),
+                        err -> System.out.println("err = " + err),
+                        () -> System.out.println("流正常結束"));
+
+        System.in.read();
+
+
+    }
+
+10. Sinks工具類
+
+Sinks 是 Reactor 提供的一個 可編程的資料推送工具，可以讓你在命令式的上下文中發出資料（push）到 Flux 或 Mono 流中。
+單值推送（Mono sink）
+Sinks.One<String> sink = Sinks.one();
+
+Mono<String> mono = sink.asMono();
+
+sink.tryEmitValue("hello"); // 推送值
+
+mono.subscribe(System.out::println); // => hello
+
+
+多值推送（類似 hot stream）
+Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+
+Flux<String> flux = sink.asFlux();
+
+sink.tryEmitNext("A");
+sink.tryEmitNext("B");
+
+flux.subscribe(System.out::println); // 如果此時訂閱，可能收不到 A/B，因為它已發送
+-------------------------------------------------------------------------------------------------------------
+
+
+11. 阻塞式API: 通過block()獲得流中的所有數據
+
+ @Test
+    void block() throws IOException {
+
+        List<Integer> block = Flux.just(1)
+                .map(i -> i + 10)
+                .collectList()
+                .block();
+
+
+    }
+
+
+12. Context-API: 響應式中的ThreadLocal 如何做上下文的數據重播
+
+
+ @Test
+    void threadLocal() {
+
+       Flux.just(1,2,3)
+               .transformDeferredContextual((flux,context)->{
+                   System.out.println("flux = " + flux);
+                   System.out.println("context = " + context);
+                   return flux.map(i-> i + "====> "+context.get("prefix"));
+               })
+              //上游嫩剛拿到下游的最近一次數據
+               //Context是反向流，由下游傳到上游
+               .contextWrite(Context.of("prefix", "hh")) //ThreadLocal共享了數據,在上游的所有人能看到
+
+               .subscribe(v->System.out.println("v = " + v));
+
+
+    }
+
+
+
+13. ParallelFlux: 并發流  百萬數據，8個綫程，每個綫程處理100，進行分批處理一直到接受
+
+   @Test
+     void paralleFlux() {
+
+         Flux.range(1, 100)
+                 .buffer(10)//設置每個現場處理幾個
+                 .doOnNext(list->
+                     System.out.println("收到一組buffer: " + list +
+                             " | 綫程: " + Thread.currentThread().getName()))
+                 .parallel(8)//設置8個并發綫程
+                 .runOn(Schedulers.newParallel("yy"))
+                 .log()
+                // .flatMap(Flux::fromIterable)
+                 .flatMap(list->{
+                     System.out.println("正在處理: " + list +
+                             " | 處理綫程: " + Thread.currentThread().getName());
+                     return Flux.fromIterable(list)
+                             .delayElements(Duration.ofMillis(50)); // 模擬處理延遲
+                 })
+                 .collectSortedList(Integer::compareTo)
+                 .subscribe(v -> System.out.println("v = " + v));
+
+
+     }
+ 
+ 
+ 
+ 

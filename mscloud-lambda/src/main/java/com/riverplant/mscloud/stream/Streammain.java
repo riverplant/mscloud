@@ -26,15 +26,11 @@ public class Streammain {
 		//2. 從集合容器中獲取流
 		List<Integer> list = List.of(1,2);
 		
-		list.stream();
-		
 		
 		Set<String> set = Set.of();
-		set.stream();
-		
+
 		Map<String, Object> map = Map.of();
-		map.keySet().stream();
-		map.values().stream();
+
 		//流的所有操作都是無狀態，所有數據狀態僅在此函數内有效!!!!!!!!!
 		//流内的數據不使用增刪改
 		System.out.println("主綫程:" + Thread.currentThread().getName());

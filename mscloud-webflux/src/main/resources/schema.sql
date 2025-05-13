@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS person (id INT, firstname VARCHAR(100), age INT);

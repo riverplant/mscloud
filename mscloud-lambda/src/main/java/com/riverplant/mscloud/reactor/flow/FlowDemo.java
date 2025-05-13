@@ -44,34 +44,14 @@ public class FlowDemo {
 	}
 /**
  * 1. publisher: 發佈者
- * 
  * 2. Subscriber: 訂閱者
- * 
  * 3. Subscription: 訂閲關係
- * 
- * 4. 
- * 
- * @param args
- * @throws InterruptedException 
  */
 	public static void main(String[] args) throws InterruptedException {
 		
 		//1. 定義一個發佈者, 發佈數據
-//		
-//		Publisher<String> publisher = new Publisher<>() {
-//
-//			private Subscriber<? super String> subscriber;
-//			//傳一個訂閱者
-//			@Override
-//			public void subscribe(Subscriber<? super String> subscriber) {
-//				
-//				this.subscriber = subscriber;
-//				
-//			}
-//			
-//		};
-		
-		SubmissionPublisher<String> publisher = new SubmissionPublisher<>();
+
+        SubmissionPublisher<String> publisher = new SubmissionPublisher<>();
 		
 		//定義了處理器之後，綁定關係變成發佈者綁處理器，處理器綁訂閱者!!!!!!
 		MyProcessor myProcessor = new MyProcessor();

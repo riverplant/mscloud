@@ -6,8 +6,11 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveTask;
 
-public class ForkJoinTest {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+public class ForkJoinTest {
+	private static final Logger logger = LoggerFactory.getLogger(ForkJoinTest.class);
 	private static int MAX = 100;
 	private static int[] inst = new int[MAX];
 	
@@ -21,14 +24,16 @@ public class ForkJoinTest {
 	
 	public static void main(String[] args) {
 		long beginTime = System.currentTimeMillis();
-		try (ForkJoinPool pool = new ForkJoinPool()) {
+		ForkJoinPool pool = new ForkJoinPool();
+		try {
 			MyTask task = new MyTask(inst);
 			ForkJoinTask<int[]>  taskResult = pool.submit(task);
-			try {
-				System.out.println(Arrays.toString(taskResult.get()));
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+			System.out.println(Arrays.toString(taskResult.get()));
+
+		}catch (Exception e) {
+			logger.error("Unexpected error occurred", e);
+		}finally {
+			pool.shutdown();
 		}
 		long endTime = System.currentTimeMillis();
 		System.out.println("耗時:"+ ( endTime - beginTime ));

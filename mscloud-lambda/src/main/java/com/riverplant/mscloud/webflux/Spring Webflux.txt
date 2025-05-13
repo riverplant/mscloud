@@ -1,0 +1,81 @@
+WebFlux-響應式Web
+
+1. 引入WebFlux
+  1.1 . DispatcherHandler
+
+   @Nullable
+      private List<HandlerMapping> handlerMappings;
+      @Nullable
+      private List<HandlerAdapter> handlerAdapters;
+      @Nullable
+      private List<HandlerResultHandler> resultHandlers;
+
+
+
+     HandlerMapping: 請求映射，應用與每個請求由哪個方法進行處理
+
+
+     HandlerAdapter: 處理器適配器；反射執行目標方法
+
+
+     HandlerResultHandler: 處理器結果處理器,
+
+
+     SpringMVC:  DispatcherServlet中有一個doDispatch()方法，來處理所有請求
+
+     WebFlux:    DispatcherHandler中各有一個handle() 方法,來處理所有請求
+
+     public Mono<Void> handle(ServerWebExchange exchange) {
+             if (this.handlerMappings == null) {
+                 return this.<Void>createNotFoundError();
+             } else {
+                 return CorsUtils.isPreFlightRequest(exchange.getRequest()) ?
+                        this.handlePreFlight(exchange) :
+                        Flux.fromIterable(this.handlerMappings).concatMap(
+                                                                   (mapping) -> mapping.getHandler(exchange))
+                                                               .next()
+                                                               .switchIfEmpty(this.createNotFoundError()).onErrorResume((ex) -> this.handleResultMono(exchange, Mono.error(ex))).flatMap((handler) -> this.handleRequestWith(exchange, handler));
+             }
+         }
+
+      1. 請求和相應都封裝在ServerWebExchange對象中，由handle方法進行處理
+      2. 如果沒有任何的請求映射器，直接返回一個404，返回一個mono.error
+        if (this.handlerMappings == null) {
+                       return this.<Void>createNotFoundError();
+                   }
+
+         //使用 Mono.defer  相當於延遲加載，只有儅有訂閱者，且流被激活后才動態調用這個方法!!!!!!!!!!!!!
+         Mono.defer(()->{
+             Exception ex = new ResponseStatusException(HttpStatus.NOT_FOUND);
+             return Mono.error(ex);
+
+         })
+      3. 跨域工具檢查，CorsUtils.isPreFlightRequest(exchange.getRequest()) ?  this.handlePreFlight(exchange)
+
+      4. 無跨域，調用Flux流式操作
+            Flux.fromIterable(this.handlerMappings) //拿到所有的handlerMappings
+            .concatMap((mapping) -> mapping.getHandler(exchange)) //找每一個Mappings,看誰能處理請求
+            .next()//直接獲取第一個能處理這個請求的handler
+            .switchIfEmpty(this.createNotFoundError()) // 如果沒拿到這個元素則相應404
+            .onErrorResume((ex) -> this.handleResultMono(exchange, Mono.error(ex))) // 異常處理，一旦發生異常調用handleResultMono處理異常
+            .flatMap((handler) -> this.handleResultMono(exchange, handler));//如果沒有異常，調用handleResultMono處理請求，得到結果
+
+
+
+     HttpEntity<T>  獲取封裝后的請求對象
+
+     @RequestPart:  獲取文件上傳的數據
+
+
+SSE: 單工；請求過去之後，等待服務端源源不斷的數據
+websocket: 雙工，鏈接建立之後可以任意交互
+
+
+自定義flux配置
+
+WebFluxConfigurer
+容器中注入這個類型的組件，重寫底層邏輯!!!!!!!!
+
+
+
+Filter
