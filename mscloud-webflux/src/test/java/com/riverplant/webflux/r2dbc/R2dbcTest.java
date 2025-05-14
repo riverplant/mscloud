@@ -2,6 +2,8 @@ package com.riverplant.webflux.r2dbc;
 
 import com.riverplant.webflux.entity.Author;
 
+import com.riverplant.webflux.entity.AuthorWithBooks;
+import com.riverplant.webflux.entity.Book;
 import com.riverplant.webflux.repository.AuthorRepository;
 import com.riverplant.webflux.repository.BookRepository;
 import io.r2dbc.spi.ConnectionFactories;
@@ -9,7 +11,6 @@ import io.r2dbc.spi.ConnectionFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.relational.core.query.Criteria;
 import org.springframework.data.relational.core.query.Query;
@@ -18,8 +19,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.Arrays;
 import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 /**
  * 1.  R2dbcAutoConfiguration ： 主要配置連接工廠，連接池
@@ -58,7 +61,7 @@ public class R2dbcTest {
                 ).flatMap(result -> result.map(readable -> {
                             Long id = readable.get("id", Long.class);
                             String name = readable.get("name", String.class);
-                            return new Author(id, name);
+                            return new Author(id,name);
                         })
 
                 )
@@ -112,7 +115,7 @@ public class R2dbcTest {
                 .map(row -> {
                     Long id = ((Number) row.get("id")).longValue();
                     String name = (String) row.get("name");
-                    return new Author(id, name);
+                    return new Author( id, name );
                 })
                 .subscribe(author -> System.out.println("author ===>" + author));
 
@@ -131,7 +134,7 @@ public class R2dbcTest {
                                             System.out.println("row = " + row);
                                             Long id = ((Number) row.get("id")).longValue();
                                             String name = (String) row.get("name");
-                                            return new Author(id, name);
+                                            return new Author();
                                         }))
                 .expectNextMatches(author -> author.getName().equals("zhang san"))
                 .verifyComplete();
@@ -174,9 +177,6 @@ public class R2dbcTest {
                 .verifyComplete();
     }
 
-    @Autowired
-    R2dbcCustomConversions r2dbcCustomConversions;
-
 
     @Test
     void findBookAndAhthor() {
@@ -185,6 +185,23 @@ public class R2dbcTest {
                 .as(StepVerifier::create)
                 .expectNextCount(1)
                 .verifyComplete();
+    }
+
+    @Test
+    void findAhthorWithBooks() {
+        Mono<Author> authorMono = authorRepository.findById(1L);
+        Mono<List<Book>> booksMono  = bookRepository.findByAuthorId(1L).collectList();
+
+        Mono<AuthorWithBooks> result = authorMono.zipWith(booksMono, AuthorWithBooks::new);
+
+        result.subscribe(System.out::println);
+
+        StepVerifier.create( result )
+                .assertNext(authorWithBooks -> {
+                   assertThat(authorWithBooks.getAuthor()).isNotNull();
+                })
+                .verifyComplete();
+
     }
 
 }

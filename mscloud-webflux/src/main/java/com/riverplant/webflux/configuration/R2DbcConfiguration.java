@@ -1,7 +1,6 @@
 package com.riverplant.webflux.configuration;
 
-import com.riverplant.webflux.converter.BookConverter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnJava;
+import com.riverplant.webflux.converter.BookWithAuthorDtoConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +15,6 @@ public class R2DbcConfiguration {
     public R2dbcCustomConversions onversions() {
 
         //把自定义的转换器加入到R2dbcCustomConversions
-      return  R2dbcCustomConversions.of(H2Dialect.INSTANCE, new BookConverter());
+      return  R2dbcCustomConversions.of(H2Dialect.INSTANCE, new BookWithAuthorDtoConverter());
     }
 }

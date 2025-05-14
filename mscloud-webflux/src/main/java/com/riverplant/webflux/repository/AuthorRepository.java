@@ -5,6 +5,7 @@ import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.Collection;
 
@@ -23,6 +24,6 @@ public interface AuthorRepository extends R2dbcRepository<Author, Long> {
 
     //1. 一本书有一个作者
     //2. 一个作者有很多图书
-
+    Mono<Author> findById(Long id);
 
 }
