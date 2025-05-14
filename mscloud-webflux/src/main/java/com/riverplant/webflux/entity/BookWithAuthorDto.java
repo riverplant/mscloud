@@ -1,12 +1,11 @@
 package com.riverplant.webflux.entity;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+
 
 import java.time.LocalDateTime;
 
-@Setter
-@Getter
+@Data
 public class BookWithAuthorDto {
     private Long id;
     private String title;
@@ -14,15 +13,4 @@ public class BookWithAuthorDto {
     private String authorName; // 来自联表查询
     private LocalDateTime publishTime;
 
-
-    @Override
-    public String toString() {
-        return "BookWithAuthorDto{" +
-                "id=" + id +
-                ", title='" + title + '\'' +
-                ", authorId=" + authorId +
-                ", authorName='" + authorName + '\'' +
-                ", publishTime=" + publishTime +
-                '}';
-    }
 }
