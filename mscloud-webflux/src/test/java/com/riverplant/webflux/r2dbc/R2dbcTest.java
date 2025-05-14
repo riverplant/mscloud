@@ -22,6 +22,8 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
 /**
@@ -134,9 +136,12 @@ public class R2dbcTest {
                                             System.out.println("row = " + row);
                                             Long id = ((Number) row.get("id")).longValue();
                                             String name = (String) row.get("name");
-                                            return new Author();
+                                            return new Author(id, name);
                                         }))
-                .expectNextMatches(author -> author.getName().equals("zhang san"))
+                .assertNext(author -> {
+                    assertNotNull(author.getName(), "Author name is null");
+                    assertEquals("zhang san", author.getName());
+                })
                 .verifyComplete();
     }
 
