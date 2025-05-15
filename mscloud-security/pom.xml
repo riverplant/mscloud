@@ -9,13 +9,14 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>mscloud-webflux</artifactId>
+    <artifactId>mscloud-security</artifactId>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
 
     <dependencies>
         <!-- 響應式WebFlux -->
@@ -31,18 +32,14 @@
             <artifactId>spring-boot-starter-data-r2dbc</artifactId>
         </dependency>
 
-        <!-- R2DBC H2 Driver -->
+        <!-- R2DBC PostgreSQL Driver -->
         <dependency>
             <groupId>io.r2dbc</groupId>
-            <artifactId>r2dbc-h2</artifactId>
+            <artifactId>r2dbc-postgresql</artifactId>
+            <version>0.8.13.RELEASE</version>
         </dependency>
 
-        <!-- H2 Database 本體 -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
+
 
         <!-- 用於驗證 reactive 流的工具（選擇性） -->
         <dependency>
@@ -71,5 +68,6 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
     </dependencies>
+
 
 </project>

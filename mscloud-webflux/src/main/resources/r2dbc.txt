@@ -32,3 +32,6 @@ https://r2dbc.io/drivers/   數據庫驅動
 
 
 4.  R2dbcTransactionManagerAutoConfiguration
+
+-----------------------------------------------------Spring security Reactive--------------------------------------------------
+SpringBoot + Webflux + Spring Data R2dbc + Spring Security

@@ -116,5 +116,6 @@
     	<module>mscloud-kafka</module>
     	<module>mscloud-rabbimq</module>
         <module>mscloud-webflux</module>
+        <module>mscloud-security</module>
     </modules>
 </project>

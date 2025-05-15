@@ -4,10 +4,9 @@ CREATE TABLE IF NOT EXISTS authors (
 );
 
 
-CREATE TABLE  IF NOT EXISTS book (
+CREATE TABLE IF NOT EXISTS book (
     id BIGINT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     author_id BIGINT NOT NULL,
-    publish_time DATETIME NOT NULL
+    publish_time TIMESTAMP NOT NULL
 );
-
