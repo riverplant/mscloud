@@ -1,4 +1,4 @@
-package com.riverplant.security.security.configuration;
+package com.riverplant.security.configuration;
 
 import io.r2dbc.spi.ConnectionFactory;
 import org.springframework.context.annotation.Bean;
