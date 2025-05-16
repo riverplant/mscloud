@@ -42,3 +42,101 @@ RBAC权限模型:
 
 
 授权-------------------------------------------------------------------------
+// ✅ 1. 权限 + 角色实体定义（简化）
+
+public class TUser {
+    private Long id;
+    private String username;
+    private String password;
+    // ... 省略其它字段
+}
+
+public class TRole {
+    private Long id;
+    private String name; // 如：ADMIN
+}
+
+public class TPermission {
+    private Long id;
+    private String value; // 如：READ_PRIVILEGE
+}
+
+public class TUserRole {
+    private Long userId;
+    private Long roleId;
+}
+
+public class TRolePerm {
+    private Long roleId;
+    private Long permId;
+}
+
+// ✅ 2. 权限与角色封装为 GrantedAuthority
+
+public class CustomGrantedAuthority implements GrantedAuthority {
+    private final String authority;
+    public CustomGrantedAuthority(String authority) {
+        this.authority = authority;
+    }
+    @Override
+    public String getAuthority() {
+        return authority;
+    }
+}
+
+// ✅ 3. 构建 UserDetails 对象（角色以 ROLE_ 开头）
+
+private UserDetails buildUserDetails(TUser user, List<String> roles, List<String> permissions) {
+    List<GrantedAuthority> authorities = new ArrayList<>();
+
+    // 权限（例如：READ_PRIVILEGE）
+    permissions.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
+
+    // 角色（例如：ROLE_ADMIN）
+    roles.forEach(r -> authorities.add(new SimpleGrantedAuthority("ROLE_" + r)));
+
+    return User.withUsername(user.getUsername())
+            .password(user.getPassword())
+            .authorities(authorities)
+            .build();
+}
+
+// ✅ 4. 示例控制器使用 @PreAuthorize 控制权限与角色
+
+@RestController
+@RequestMapping("/api")
+public class SampleController {
+
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Mono<String> admin() {
+        return Mono.just("只有管理员可以访问");
+    }
+
+    @GetMapping("/read")
+    @PreAuthorize("hasAuthority('READ_PRIVILEGE')")
+    public Mono<String> read() {
+        return Mono.just("拥有读取权限即可访问");
+    }
+
+    @GetMapping("/combined")
+    @PreAuthorize("hasRole('MANAGER') and hasAuthority('EDIT_PRIVILEGE')")
+    public Mono<String> combined() {
+        return Mono.just("必须有MANAGER角色 且 有EDIT权限");
+    }
+}
+
+// ✅ 5. 开启方法级权限控制
+
+@Configuration
+@EnableReactiveMethodSecurity
+public class MethodSecurityConfig {
+    // 无需额外配置，默认支持 @PreAuthorize
+}
+
+// ✅ 6. PasswordEncoder Bean（推荐 bcrypt）
+
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+}

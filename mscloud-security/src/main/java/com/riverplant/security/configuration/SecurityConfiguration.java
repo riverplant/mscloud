@@ -14,7 +14,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 
 @Configuration
 @EnableWebFluxSecurity
-@EnableReactiveMethodSecurity
+@EnableReactiveMethodSecurity //开启响应式的，基于方法级别的权限控制
 @RequiredArgsConstructor
 public class SecurityConfiguration {
 
@@ -29,6 +29,7 @@ public class SecurityConfiguration {
         return http.csrf(ServerHttpSecurity.CsrfSpec::disable).authorizeExchange(authorize -> authorize.matchers(PathRequest.toStaticResources().atCommonLocations()).permitAll() // 所有静态资源都可以直接访问
                         .pathMatchers("/auth/**").permitAll()// 放行登录接口
                         .anyExchange().authenticated()) //剩下的所有请求都需要认证
+                .formLogin()
                 // Spring Security 底层使用 ReactiveAuthenticationManager 去查询用户信息
                 //ReactiveAuthenticationManager的实现类是UserDetailsRepositoryReactiveAuthenticationManager
                 // 需要传入一个ReactiveUserDetailsService
