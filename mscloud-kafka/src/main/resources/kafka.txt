@@ -1,4 +1,6 @@
-1. 傳統: 分佈式基於發佈/訂閲模式的消息隊列，主要應用數據實時處理領域
+1. 傳統: 分佈式基於發佈/訂閲模式的消息隊列(Message Queue)，主要應用數據實時處理領域
+
+        将发布的消息分为不同的类别，订阅之只接收感兴趣的消息
 
 2. 最新： 開源的分佈式事件流平台(Event Stream Platform)
 
@@ -14,22 +16,24 @@
         每個消費者互相獨立，都可以消費到數據
 -----------------------------------------------------------------------------------
 KafKa基礎架構:
-   1. Producer
+   1. Producer: 对接外部传入的数据
    
    
    2. Topic：分成多個partition[分區進行存儲，可以提高吞吐量]
-            broker0(代表一個服務器):  TopicA-Partition0
-            broker1(代表一個服務器):  TopicA-Partition1
-            broker2(代表一個服務器):  TopicA-Partition2
+            broker0(代表一個服務器101):  TopicA-Partition0
+            broker1(代表一個服務器102):  TopicA-Partition1
+            broker2(代表一個服務器103):  TopicA-Partition2
             
             消費者可以選擇不同的分區來進行消費
             但是需要注意:！！！一個分區的數據只能由一個消費者來消費!!!!!!!
             
-            爲了保障分區的可靠性，每個broker中存儲了若干副本,生產和消費只能操作leader副本，
+            爲了保障分區的可靠性，每個broker中存儲了若干副本,[生產和消費只能操作leader副本]，
             只有等待leader出問題，follower副本才有可能成為leader被生產者和消費者操作
+
+            Zookeeper记录服务器节点运行的状态(哪个分区在线，哪个分区不在线)，记录每一个分区的Leader信息!!!!!!!!
             
             
-   3.Consumer
+   3.Consumer: 一个分区(broker)的数据只能由一个消费者进行消费!!!!!!!!!!!
    
 ----------------------------------------快速入門------------------------------------
 tar -zxvf kafka....  解壓縮
@@ -140,6 +144,25 @@ bin/kafka-console-producer.sh  --bootstrap-server 【kafka100:9092，kafka101:90
 
 bin/kafka-console-producer.sh  --bootstrap-server kafka100:9092 --topic first
 
+--bootstrap-server 【kafka100:9092，kafka101:9092，kafka103:9092】: 连接kafka
+--topic first      指定要操作的topic
+
+ --create --topic test-topic  创建主题
+ --delete:   删除主题
+ --alter:    修改主题
+ --list:     查看所有的主题
+ --describe:  查看主题详细信息
+ --partitions 1 指定创建的topic有多少个分区(每一个broker0上都可以创建多个分区) 用于提高性能、并发处理 3~10个
+ --replication-factor 1  指定创建的topic有多少个副本  不能大于 Kafka broker 数量，一台服务器是一个副本
+
+生产者端:
+PS D:\kafka\kafka_2.13-3.7.0\bin\windows> .\kafka-console-producer.bat --bootstrap-server localhost:9092 --topic test-topic
+
+消费者端:
+PS D:\kafka\kafka_2.13-3.7.0\bin\windows> .\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic test-topic --from-beginning
+
+
+
 1. main 綫程創建一個Producer 
 
                       --- send(ProducerRecord)---> 攔截器Interceptors(對數據進行加工)
@@ -147,11 +170,14 @@ bin/kafka-console-producer.sh  --bootstrap-server kafka100:9092 --topic first
                       ------->Serializer(序列化器)
                       
                       -------->分區器(Partitioner)通過發往不同的緩存隊列來實現(隊列大小32m)[DQuene1,DQuene2,DQuene3.....]
+                      每一个分区会创建一个队列
                       
                        -------->ProducerBatch(16K)
-                       
                        儅數據纍計到batch.size的時候，才會發送
                        【linger.ms:如果數據一直沒有達到batch.size，sender等待linger.ms的時間就會發送】 
+                       batch.size:
+                       linger.ms:
+
                        ----sender綫程----> Sender(讀取數據)
                        
                        如果發送出去的消息一直得不到Broker應答，儅積纍到5個消息的時候將停止發送
@@ -172,25 +198,90 @@ bin/kafka-console-producer.sh  --bootstrap-server kafka100:9092 --topic first
            切割成一塊塊數據存儲在多台Broker上，實現負載均衡的效果
            
 DefaultPartitioner: Kafka默認分區器
-    1. 如果指定了分區，就按照指定分區發送
-    2. 如果沒有指定分區，但是指定了Key, 就按照（ key的hash值%分區數 ）相同的 key 总是映射到相同的分区
-    3. 如果沒有指定分區，沒有指定Key，就将一批消息粘性地发送到同一个分区StickyPartitioner，直到 batch 被填满或者达到超时阈值，然后才会切换到新的分区
+
+1. 如果指定了分區，就按照指定分區發送
+
+public ProducerRecord(String topic, Integer partition, Long timestamp, K key, V value) {
+        this(topic, partition, timestamp, key, value, null);
+    }
+
+    /**
+     * Creates a record to be sent to a specified topic and partition
+     *
+     * @param topic The topic the record will be appended to
+     * @param partition The partition to which the record should be sent
+     * @param key The key that will be included in the record
+     * @param value The record contents
+     * @param headers The headers that will be included in the record
+     */
+    public ProducerRecord(String topic, Integer partition, K key, V value, Iterable<Header> headers) {
+        this(topic, partition, null, key, value, headers);
+    }
+
+    /**
+     * Creates a record to be sent to a specified topic and partition
+     *
+     * @param topic The topic the record will be appended to
+     * @param partition The partition to which the record should be sent
+     * @param key The key that will be included in the record
+     * @param value The record contents
+     */
+    public ProducerRecord(String topic, Integer partition, K key, V value) {
+        this(topic, partition, null, key, value, null);
+    }
+
+     2. 如果沒有指定分區，但是指定了Key, 就按照（ key的hash值%分區數 ）相同的 key 总是映射到相同的分区
+     例如key1 的hash值=5, key2 的hash值=6,  topic 的 partition = 2
+     key1对应的value1写入 5 % 2 = 1号分区
+     key2对应的value1写入0号分区
+
+     在生产环境中，如果希望将订单表中的数据发送到kafka同一个分区，可以用表名来做key
+    /**
+     * Create a record to be sent to Kafka
+     *
+     * @param topic The topic the record will be appended to
+     * @param key The key that will be included in the record
+     * @param value The record contents
+     */
+    public ProducerRecord(String topic, K key, V value) {
+        this(topic, null, null, key, value, null);
+    }
+
+    3. 如果沒有指定分區，沒有指定Key，就将一批消息粘性地发送到同一个分区StickyPartitioner，
+    直到 batch(16k) 被填满或者达到超时阈值(linger.ms)，然后才会切换到新的分区
+    /**
+     * Create a record with no key
+     *
+     * @param topic The topic this record should be sent to
+     * @param value The record contents
+     */
+    public ProducerRecord(String topic, V value) {
+        this(topic, null, null, null, value, null);
+    }
+
+
+/*********************************自定义分区器*********************************************************/
+如果发送过来的数据中包括river,发往0号分区，如果不包括，发往1号分区
+
     
 
 業務需求：
   將訂單表中的所有數據發送到kafka某一個分區: 將key設置爲訂單表的名字
 
   通過kafka的分區器實現，將發送過來的數據中如果包含nitere的數據都發往0號分區，其它發往1號分區
-  
+/*********************************************************************************************/
+
+
 ----生產者提高吞吐量:linger.ms: 默認爲0ms,只要有消息就立刻發送
 
 修改 batch.size： 批次大小，默認16k
-    linger.ms: 等待時間，修改為5-100ms
+    linger.ms: 等待時間，修改為5-100ms(影响数据延时)
     compression.tye: 壓縮snappy
     RecordAccumulator: 緩衝區大小，修改爲64m
 
+/*********************************************************************************************/
 
------數據可靠性: ACK :
+-----數據可靠性(应答策略): ACK :
                0,
                1, (一般用於傳輸普通的日志)
                all(-1) 傳輸和錢相關的數據，必須保證
@@ -206,6 +297,8 @@ DefaultPartitioner: Kafka默認分區器
              + 分區副本>=2（leader + follower） 
              + ISR(in-sync replica set)裏應答的最小副本數>=2
              有可能數據重複
+             ISR放的都是和Leader正常通信的breaker, 一旦Follower长时间未向Leader发送通信请求或者同步数据，
+             会被踢出ISR!!!!!!
              
 最多一次(At Most Once): ACK=0 保證數據不重複，但是可能丟數據
 
@@ -213,20 +306,19 @@ DefaultPartitioner: Kafka默認分區器
 
 ----------冪等性: Producer不論向Broker發送多少次重複數據，Broker只會持久化一次，不會重複
 
-精確一次(Exactly Once) = 冪等性 
-             + 至少一次(At Lease Once): ACK=-1 
-             + 分區副本>=2（leader + follower） 
-             + ISR(in-sync replica set)裏應答的最小副本數>=2
+【精確一次(Exactly Once) = 冪等性 】*************************************************
+             冪等性
+             + 至少一次(At Lease Once): ACK=-1
+             + 分區副本>=2（leader + follower）  除了有一个leader之外至少要有一个follower
+             + ISR(in-sync replica set)裏應答的最小副本數>=2, 正常通信follower至少有1个
              
 冪等性判斷重複數據的標準: 具有<PID,Partition,SeqNumber>相同主鍵的消息提交時
                     Broker指揮持久化一條
                     PID: 生產者ID,每次Kafka重啓都會分配一個新的
                     Partition: 分區號
                     SeqNumber: 單調遞增
-                    冪等性只能保證單分區單會話中不重複       
+                   【 冪等性只能保證單分區單會話中不重複    】
 開啓冪等性: 【enable.idempotence】   默認true    
-
-
 
 ------------生產者事務: 開啓事務，必須先開啓冪等性  
 
@@ -246,10 +338,18 @@ void commitTransaction()
 4. 放棄事務
 void abortTransaction()
 
-
+******************************************************************************************************
 
 ---------------------數據有序
 單分區内，有序
+多分区，分区与分区间无序
+
+1. 如果没有开启幂等性:
+  max.in.flight.requests.per.connection  需要设置为1
+
+2. 开启了幂等性:
+max.in.flight.requests.per.connection  需要设置<=5
+
 
 
 ----------數據亂序
@@ -258,8 +358,6 @@ void abortTransaction()
 
 
 
-    
-             
              
 
 ------------集群脚本:  kafka-topics.sh----------------------------
@@ -322,6 +420,11 @@ cat /path/to/kafka/config/server.properties | grep listeners
 
 listeners=PLAINTEXT://0.0.0.0:9092
 advertised.listeners=PLAINTEXT://192.168.10.100:9092
+
+
+-----------------------------------------Kafka Broker-------------------------------------------------
+
+
 
 
 

@@ -6,4 +6,14 @@
     <version>0.0.1-SNAPSHOT</version>
   </parent>
   <artifactId>mscloud-kafka</artifactId>
+
+  <dependencies>
+  <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients -->
+  <dependency>
+    <!-- kafka-clients -->
+    <groupId>org.apache.kafka</groupId>
+    <artifactId>kafka-clients</artifactId>
+    <version>4.0.0</version>
+  </dependency>
+  </dependencies>
 </project>
