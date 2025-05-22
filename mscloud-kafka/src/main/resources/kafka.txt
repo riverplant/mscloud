@@ -355,6 +355,62 @@ max.in.flight.requests.per.connection  需要设置<=5
 ----------數據亂序
 每個broker最多可以緩存5個請求(無應答請求)
 
+// ✅ 示例：Kafka 保证同 key 消息有序发送
+// 前提：Kafka 已启动，topic 名为 "order-events"
+
+import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.common.serialization.StringSerializer;
+
+import java.util.Properties;
+
+public class OrderedProducer {
+
+    public static void main(String[] args) {
+        String topic = "order-events";
+
+        // Kafka producer 配置
+        Properties props = new Properties();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+        // ✅ 幂等性 + 顺序配置
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        props.put(ProducerConfig.RETRIES_CONFIG, "3");
+
+        //顺序配置
+        props.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "1");
+
+        KafkaProducer<String, String> producer = new KafkaProducer<>(props);
+
+        // 模拟按订单 ID（作为 key）顺序发送 5 条事件
+        String orderId = "ORDER-1001";
+
+        for (int i = 1; i <= 5; i++) {
+            String message = "Order step " + i;
+            ProducerRecord<String, String> record = new ProducerRecord<>(topic, orderId, message);
+
+            producer.send(record, (metadata, exception) -> {
+                if (exception == null) {
+                    System.out.printf("✅ Sent: key=%s, value=%s, partition=%d, offset=%d%n",
+                            record.key(), record.value(), metadata.partition(), metadata.offset());
+                } else {
+                    exception.printStackTrace();
+                }
+            });
+
+            try {
+                Thread.sleep(200); // 模拟间隔发送
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        producer.flush();
+        producer.close();
+    }
+}
 
 
 
@@ -424,9 +480,79 @@ advertised.listeners=PLAINTEXT://192.168.10.100:9092
 
 -----------------------------------------Kafka Broker-------------------------------------------------
 
+zookeeper中的服务端存储的kafka信息:
+
+1. brokers
+ls /kafka/brokers/ids         记录有哪些brokers
+
+ get /kafka/brokers/topics/test-topic/partitions/0/state   记录谁知leader,有哪些服务器可用
+{"controller_epoch":1,"leader":0,"version":1,"leader_epoch":0,"isr":[0]}
+
+
+2./kafka/controller  : controller辅助选举leader
+get /kafka/controller
+{"version":2,"brokerid":0,"timestamp":"1747916646313","kraftControllerEpoch":-1}
+
+
+节点服役(添加broker)和退役!!!!!!!!!!!!!!!!!----------------------------------------------------------
+
+1. 创建文件 vim topics-to-move.json
+
+{
+  "topics": [
+     {"topic": "test-topic"}
+  ],
+  "version":1
+}
+
+2.生成一个负载均衡的计划
+bin/kafka-reassign-partitions.sh  --bootstrap-server localhost:9092  --topics-to-move-json-file  topics-to-move.json
+ -- broker-list "0,1,2,3" --generate
 
 
 
+
+退役: 将该节点存储的所有数据移到其它节点上，然后将该节点关闭
+
+启动停止: 先停止kafka,  再停止zk
+-daemon 参数表示后台运行 Kafka（非阻塞）
+
+ssh $i ... 会远程登录服务器执行命令（需配置好免密 SSH）
+
+脚本：
+#!/bin/bash
+
+KAFKA_HOME=/opt/kafka  # 你可以根据你的 Kafka 安装目录修改这个路径
+
+case $1 in
+"start")
+    echo "➡ Starting Kafka cluster..."
+    for i in broker1 broker2 broker3
+    do
+        echo "Starting Kafka on $i..."
+        ssh $i "$KAFKA_HOME/bin/kafka-server-start.sh -daemon $KAFKA_HOME/config/server.properties"
+    done
+    ;;
+"stop")
+    echo " Stopping Kafka cluster..."
+    for i in broker1 broker2 broker3
+    do
+        echo "Stopping Kafka on $i..."
+        ssh $i "$KAFKA_HOME/bin/kafka-server-stop.sh"
+    done
+    ;;
+*)
+    echo "Usage: $0 {start|stop}"
+    ;;
+esac
+
+
+chmod +x kafka-cluster.sh
+./kafka-cluster.sh start    # 启动整个 Kafka 集群
+./kafka-cluster.sh stop     # 停止整个 Kafka 集群
+
+
+-----------------------------------------Kafka副本----------------------------------------------------------------------
 
 
 
