@@ -6,13 +6,12 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 
-public class MyKafkaConsumer {
+public class MyKafkaConsumer3 {
     public static void main(String[] args) {
 
         //0. 配置

@@ -63,6 +63,8 @@ public class kafkaProducer {
             try {
                 //2. 发送数据
                 for (int i = 0; i < 5; i++) {
+                    //可以在这里将消息发送给指定的partition
+                    //ProducerRecord<String, String> record = new ProducerRecord<>(topic, partition, key, value);
                     kafkaProducer.send(new ProducerRecord<>("test-topic", "hello" + i),
                             // metadata: metadata数据信息
                             // exception: 异常信息
