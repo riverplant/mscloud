@@ -117,5 +117,6 @@
     	<module>mscloud-rabbimq</module>
         <module>mscloud-webflux</module>
         <module>mscloud-security</module>
+        <module>mscloud-cucumber</module>
     </modules>
 </project>

@@ -24,8 +24,11 @@ public class MyKafkaConsumer {
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
-        //groupId
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "consumerTest");
+        //groupId配置消费者组Id
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "consumerTest2");
+
+        //设置分区分配策略
+        properties.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "org.apache.kafka.clients.consumer.RoundRobinAssignor");
 
         //防止重复消费或性能问题
         properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
@@ -34,7 +37,7 @@ public class MyKafkaConsumer {
 
 
         try ( //1.创建一个消费者
-              KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties);
+              KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)
         ) {
 
             //2. 定义主题列表
@@ -44,11 +47,11 @@ public class MyKafkaConsumer {
             例如将所有订单数据发送刚给以订单号为id
              **/
             //订阅主题对应的分区
-            consumer.assign(
+     /**       consumer.assign(
                     List.of(
                             new TopicPartition("test-topic",0)
                     ));
-
+**/
             //消费数据
             while (true) {
 
