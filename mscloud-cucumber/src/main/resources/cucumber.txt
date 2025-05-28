@@ -2,3 +2,24 @@ Gherkin:
 And :
 
 But
+
+
+Data Tables
+
+Regex:
+
+.  代表任意一个单独的字符
+
+*  可重复无限多个
+
++  至少一个
+
+\d 数字
+
+\w [A-Za-z0-9_]
+
+\s 空格
+
+?  前面的元素可有可无，最多出现一次     a?b         匹配: b   ab      不匹配 aab
+                                 colou?r      color colour      colouur
+                                 \d?          "",  5            55

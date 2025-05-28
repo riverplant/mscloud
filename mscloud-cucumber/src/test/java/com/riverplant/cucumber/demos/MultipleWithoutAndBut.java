@@ -1,5 +1,6 @@
 package com.riverplant.cucumber.demos;
 
+import io.cucumber.java.en.But;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.When;
 import io.cucumber.java.en.Then;
